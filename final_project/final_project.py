@@ -11,9 +11,9 @@ from tqdm import tqdm
 
 # DATA PREPING
 data = h5py.File("data/CH_D3.jld2", "r")
-TRAIN_INDEX = 300
-BATCH_SIZE = 5
-NUM_EPOCHS = 15
+TRAIN_INDEX = 260
+BATCH_SIZE = 2
+NUM_EPOCHS = 5
 X1_CH = torch.Tensor(np.array(data["X1"]))
 X2_CH = torch.Tensor(np.array(data["X2"]))
 X3_CH = torch.Tensor(np.array(data["X3"]))
@@ -91,9 +91,9 @@ def train_model(train_loader, test_loader, config, verbose=True):
 
     for epoch in range(NUM_EPOCHS):
         model.train(True)
-        if verbose:
-            print(f"Starting epoch: {epoch + 1}")
-            print(f"*******************************")
+        #if verbose:
+        print(f"Starting epoch: {epoch + 1}")
+        print(f"*******************************")
         running_loss = 0.0
         epoch_loss = 0.0
 
@@ -108,15 +108,15 @@ def train_model(train_loader, test_loader, config, verbose=True):
             loss.backward()
             optimizer.step()
 
-            if i % 5 == 0 and i > 0 and verbose:
+            if i % 10 == 0 and i > 0 and verbose:
                 avg_loss = running_loss / 5
                 print(f"Batch {i}, Loss: {avg_loss : .3f}")
                 running_loss = 0.0
 
         epoch_loss /= len(train_loader)
-        if verbose:
-            print(f"Average train_loss over epoch: {epoch_loss: .3f}")
-            print(f"*******************************")
+        #if verbose:
+        print(f"Average train_loss over epoch: {epoch_loss: .3f}")
+        print(f"*******************************")
         
         val_loss = eval_model(test_loader, model, loss_func, verbose=verbose)
         if val_loss < best_test_loss:
@@ -143,7 +143,7 @@ def eval_model(test_loader, model, loss_func, verbose=True):
     if verbose:
         print(f"Val loss: {avg_loss: .3f}")
     
-    avg_loss
+    return avg_loss
 
 
 def main():
@@ -177,3 +177,6 @@ def main():
 
     print(f"X3 ==> best config: {best_config_x3}")
     torch.save(best_model_x3, "LSTM_X3")
+
+if __name__ == '__main__':
+	main()
