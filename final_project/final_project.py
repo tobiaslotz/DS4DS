@@ -3,6 +3,7 @@ import numpy as np
 import torch 
 import torch.nn as nn
 import torch.nn.functional as f
+import argparse
 #import matplotlib.pyplot as plt
 #from ray import tune
 from torch.utils.data import Dataset, DataLoader
@@ -12,8 +13,8 @@ from tqdm import tqdm
 # DATA PREPING
 data = h5py.File("data/CH_D3.jld2", "r")
 TRAIN_INDEX = 260
-BATCH_SIZE = 2
-NUM_EPOCHS = 5
+BATCH_SIZE = 4
+NUM_EPOCHS = 10
 X1_CH = torch.Tensor(np.array(data["X1"]))
 X2_CH = torch.Tensor(np.array(data["X2"]))
 X3_CH = torch.Tensor(np.array(data["X3"]))
@@ -146,37 +147,52 @@ def eval_model(test_loader, model, loss_func, verbose=True):
     return avg_loss
 
 
-def main():
+def main(use_x1=False, use_x2=False, use_x3=False):
+    if not use_x1 and not use_x2 and not use_x3:
+        return
     best_loss_x1 = best_loss_x2 = best_loss_x3 = 10_000
     best_config_x1 = best_config_x2 = best_config_x3 = {}
     best_model_x1 = best_model_x2 = best_model_x3 = None
     param_space = list(product([5e-3, 1e-3, 1e-2, 1e-1], [2**14, 2**13, 2**12], [1, 3, 5]))
     for lr, hs, nl in tqdm(param_space):
         param_config = {"lr": lr, "hidden_size" : hs, "num_layers" : nl}
-        model_x1, loss_x1 = train_model(X1_train_loader, X1_test_loader, param_config, verbose=False)
-        model_x2, loss_x2 = train_model(X2_train_loader, X2_test_loader, param_config, verbose=False)
-        model_x3, loss_x3 = train_model(X3_train_loader, X3_test_loader, param_config, verbose=False)
-        if loss_x1 < best_loss_x1:
+        
+        if use_x1:
+            model_x1, loss_x1 = train_model(X1_train_loader, X1_test_loader, param_config, verbose=False)
+        if use_x2:
+            model_x2, loss_x2 = train_model(X2_train_loader, X2_test_loader, param_config, verbose=False)
+        if use_x3:
+            model_x3, loss_x3 = train_model(X3_train_loader, X3_test_loader, param_config, verbose=False)
+        
+        if loss_x1 < best_loss_x1 and use_x1:
             best_loss_x1 = loss_x1
             best_model_x1 = model_x1
             best_config_x1 = param_config
-        if loss_x2 < best_loss_x2:
+        if loss_x2 < best_loss_x2 and use_x2:
             best_loss_x2 = loss_x2
             best_model_x2 = model_x2
             best_config_x2 = param_config
-        if loss_x3 < best_loss_x3:
+        if loss_x3 < best_loss_x3 and use_x3:
             best_loss_x3 = loss_x3
             best_model_x3 = model_x3
             best_config_x3 = param_config
 
-    print(f"X1 ==> best config: {best_config_x1}")
-    torch.save(best_model_x1, "LSTM_X1")
+    if use_x1:
+        print(f"X1 ==> best config: {best_config_x1}")
+        torch.save(best_model_x1, "LSTM_X1")
 
-    print(f"X2 ==> best config: {best_config_x2}")
-    torch.save(best_model_x2, "LSTM_X2")
+    if use_x2:
+        print(f"X2 ==> best config: {best_config_x2}")
+        torch.save(best_model_x2, "LSTM_X2")
 
-    print(f"X3 ==> best config: {best_config_x3}")
-    torch.save(best_model_x3, "LSTM_X3")
+    if use_x3:
+        print(f"X3 ==> best config: {best_config_x3}")
+        torch.save(best_model_x3, "LSTM_X3")
 
 if __name__ == '__main__':
-	main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--X1", action="store_true")
+    parser.add_argument("--X2", action="store_true")
+    parser.add_argument("--X3", action="store_true")
+    args = parser.parse_args()
+    main(args.X1, args.X2, args.X3)
