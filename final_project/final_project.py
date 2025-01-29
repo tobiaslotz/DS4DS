@@ -13,7 +13,7 @@ from tqdm import tqdm
 # DATA PREPING
 data = h5py.File("data/CH_D3.jld2", "r")
 TRAIN_INDEX = 260
-BATCH_SIZE = 4
+BATCH_SIZE = 5
 NUM_EPOCHS = 10
 X1_CH = torch.Tensor(np.array(data["X1"]))
 X2_CH = torch.Tensor(np.array(data["X2"]))
@@ -88,7 +88,8 @@ def train_model(train_loader, test_loader, config, verbose=True):
     best_test_loss = 10_000
 
     loss_func = nn.MSELoss() # + PDE informed loss
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config['lr'])
+    #optimizer = torch.optim.AdamW(model.parameters(), lr=config['lr'])
+    optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'])
 
     for epoch in range(NUM_EPOCHS):
         model.train(True)
@@ -110,13 +111,11 @@ def train_model(train_loader, test_loader, config, verbose=True):
             optimizer.step()
 
             if i % 10 == 0 and i > 0 and verbose:
-                avg_loss = running_loss / 5
+                avg_loss = running_loss / 10
                 print(f"Batch {i}, Loss: {avg_loss : .3f}")
                 running_loss = 0.0
 
-        epoch_loss /= len(train_loader)
         #if verbose:
-        print(f"Average train_loss over epoch: {epoch_loss: .3f}")
         print(f"*******************************")
         
         val_loss = eval_model(test_loader, model, loss_func, verbose=verbose)
@@ -131,7 +130,7 @@ def eval_model(test_loader, model, loss_func, verbose=True):
     model.train(False)
     running_loss = 0.0
 
-    for _, batch in enumerate(test_loader):
+    for i, batch in enumerate(test_loader):
         X_batch, y_batch = batch[0].to(device), batch[1].to(device)
 
         with torch.no_grad():
@@ -139,7 +138,7 @@ def eval_model(test_loader, model, loss_func, verbose=True):
             loss = loss_func(y_pred, y_batch)
             running_loss += loss
 
-    avg_loss = running_loss / len(test_loader)
+    avg_loss = running_loss / (i+1)
 
     if verbose:
         print(f"Val loss: {avg_loss: .3f}")
@@ -153,26 +152,28 @@ def main(use_x1=False, use_x2=False, use_x3=False):
     best_loss_x1 = best_loss_x2 = best_loss_x3 = 10_000
     best_config_x1 = best_config_x2 = best_config_x3 = {}
     best_model_x1 = best_model_x2 = best_model_x3 = None
-    param_space = list(product([5e-3, 1e-3, 1e-2, 1e-1], [2**14, 2**13, 2**12], [1, 3, 5]))
+    param_space = list(product([5e-3, 1e-3, 1e-2], [5096, 4096, 2048, 1024], [1, 2]))
+    #param_space = [(1e-3, 5096, 1)]
+    #param_space = [(1e-3, 4048, 1)]
     for lr, hs, nl in tqdm(param_space):
         param_config = {"lr": lr, "hidden_size" : hs, "num_layers" : nl}
         
         if use_x1:
-            model_x1, loss_x1 = train_model(X1_train_loader, X1_test_loader, param_config, verbose=False)
+            model_x1, loss_x1 = train_model(X1_train_loader, X1_test_loader, param_config, verbose=True)
         if use_x2:
-            model_x2, loss_x2 = train_model(X2_train_loader, X2_test_loader, param_config, verbose=False)
+            model_x2, loss_x2 = train_model(X2_train_loader, X2_test_loader, param_config, verbose=True)
         if use_x3:
-            model_x3, loss_x3 = train_model(X3_train_loader, X3_test_loader, param_config, verbose=False)
+            model_x3, loss_x3 = train_model(X3_train_loader, X3_test_loader, param_config, verbose=True)
         
-        if loss_x1 < best_loss_x1 and use_x1:
+        if use_x1 and loss_x1 < best_loss_x1:
             best_loss_x1 = loss_x1
             best_model_x1 = model_x1
             best_config_x1 = param_config
-        if loss_x2 < best_loss_x2 and use_x2:
+        if use_x2 and loss_x2 < best_loss_x2:
             best_loss_x2 = loss_x2
             best_model_x2 = model_x2
             best_config_x2 = param_config
-        if loss_x3 < best_loss_x3 and use_x3:
+        if use_x3 and loss_x3 < best_loss_x3:
             best_loss_x3 = loss_x3
             best_model_x3 = model_x3
             best_config_x3 = param_config
